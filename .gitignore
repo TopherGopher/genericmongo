@@ -32,3 +32,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Worktrees that Claude Code makes for its teammates; never committed.
+.claude/worktrees/
