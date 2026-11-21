@@ -7,17 +7,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Collection is the driver's collection with its documents typed as T. T is
-// whatever the collection holds: a struct, a pointer to one, or bson.M.
+// Collection wraps the driver's collection so that its methods take and
+// return T. T is whatever the collection holds: a struct, a pointer to one,
+// or bson.M.
 //
 // The methods declared here take or return a T. Every other method of
 // [mongo.Collection], such as UpdateOne, DeleteOne, CountDocuments and
 // Aggregate, is promoted from the embedded collection and works unchanged.
+// Pass the embedded Collection to code that needs the driver's own.
 type Collection[T any] struct {
 	*mongo.Collection
 }
 
-// New returns c with its documents typed as T:
+// New wraps c so that its methods take and return T:
 //
 //	users := genericmongo.New[User](db.Collection("users"))
 func New[T any](c *mongo.Collection) *Collection[T] {
@@ -28,36 +30,42 @@ func New[T any](c *mongo.Collection) *Collection[T] {
 // error is [mongo.ErrNoDocuments].
 func (c *Collection[T]) FindOne(ctx context.Context, filter any,
 	opts ...*options.FindOneOptions) (T, error) {
-	return decode[T](c.Collection.FindOne(ctx, filter, opts...))
+	return decode[T](c.Collection.FindOne(ctx, filter, opts...).Decode)
 }
 
 // FindOneAndDelete deletes the first document that matches filter and returns
 // it. When none does, the error is [mongo.ErrNoDocuments].
+//
+// The delete happens even when the document cannot then be decoded as T, and
+// the document is not returned. To keep it, call FindOneAndDelete on the
+// embedded Collection: the driver's result holds the document undecoded.
 func (c *Collection[T]) FindOneAndDelete(ctx context.Context, filter any,
 	opts ...*options.FindOneAndDeleteOptions) (T, error) {
-	return decode[T](c.Collection.FindOneAndDelete(ctx, filter, opts...))
+	return decode[T](c.Collection.FindOneAndDelete(ctx, filter, opts...).Decode)
 }
 
 // FindOneAndUpdate updates the first document that matches filter and returns
 // it as it was before the update, or as it is after with
-// SetReturnDocument(options.After). When none matches, the error is
-// [mongo.ErrNoDocuments].
+// SetReturnDocument(options.After). When there is no document to return, the
+// error is [mongo.ErrNoDocuments]. As with FindOneAndDelete, the write happens
+// even when the document cannot then be decoded as T.
 func (c *Collection[T]) FindOneAndUpdate(ctx context.Context, filter, update any,
 	opts ...*options.FindOneAndUpdateOptions) (T, error) {
-	return decode[T](c.Collection.FindOneAndUpdate(ctx, filter, update, opts...))
+	return decode[T](c.Collection.FindOneAndUpdate(ctx, filter, update, opts...).Decode)
 }
 
 // FindOneAndReplace replaces the first document that matches filter and
 // returns it as it was before, or the replacement with
-// SetReturnDocument(options.After). When none matches, the error is
-// [mongo.ErrNoDocuments].
+// SetReturnDocument(options.After). When there is no document to return, the
+// error is [mongo.ErrNoDocuments]. As with FindOneAndDelete, the write happens
+// even when the document cannot then be decoded as T.
 func (c *Collection[T]) FindOneAndReplace(ctx context.Context, filter any, replacement T,
 	opts ...*options.FindOneAndReplaceOptions) (T, error) {
-	return decode[T](c.Collection.FindOneAndReplace(ctx, filter, replacement, opts...))
+	return decode[T](c.Collection.FindOneAndReplace(ctx, filter, replacement, opts...).Decode)
 }
 
 // Find returns a cursor over the documents that match filter. Close the
-// cursor when done with it, unless All has read it to the end.
+// cursor when done with it; All closes it for you.
 func (c *Collection[T]) Find(ctx context.Context, filter any,
 	opts ...*options.FindOptions) (*Cursor[T], error) {
 	cursor, err := c.Collection.Find(ctx, filter, opts...)
@@ -73,8 +81,7 @@ func (c *Collection[T]) InsertOne(ctx context.Context, document T,
 	return c.Collection.InsertOne(ctx, document, opts...)
 }
 
-// InsertMany inserts documents. It takes the slice as it is, where the
-// driver's takes a []interface{}.
+// InsertMany inserts documents.
 func (c *Collection[T]) InsertMany(ctx context.Context, documents []T,
 	opts ...*options.InsertManyOptions) (*mongo.InsertManyResult, error) {
 	untyped := make([]any, len(documents))
@@ -91,8 +98,7 @@ func (c *Collection[T]) ReplaceOne(ctx context.Context, filter any, replacement 
 	return c.Collection.ReplaceOne(ctx, filter, replacement, opts...)
 }
 
-// Clone returns a copy of the collection with opts applied. Its documents are
-// typed as the original's are.
+// Clone returns a copy of the collection with opts applied, for the same T.
 func (c *Collection[T]) Clone(opts ...*options.CollectionOptions) (*Collection[T], error) {
 	clone, err := c.Collection.Clone(opts...)
 	if err != nil {

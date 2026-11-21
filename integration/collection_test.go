@@ -54,9 +54,8 @@ func TestInsertManyTakesASliceOfDocuments(t *testing.T) {
 
 	_, err = users.InsertMany(ctx, []user{ada, {ID: "dee"}}, options.InsertMany().SetOrdered(false))
 	assert.True(t, mongo.IsDuplicateKeyError(err), "the driver's duplicate-key error comes back as it is")
-	n, err := users.CountDocuments(ctx, bson.M{})
-	require.NoError(t, err, "the count must run")
-	assert.EqualValues(t, 4, n, "an unordered insert stores the documents after the one that failed")
+	_, err = users.FindOne(ctx, bson.M{"_id": "dee"})
+	assert.NoError(t, err, "the unordered option stores the document after the one that failed")
 
 	_, err = users.InsertMany(ctx, nil)
 	assert.ErrorIs(t, err, mongo.ErrEmptySlice, "the driver's error for nothing to insert comes back as it is")
@@ -190,8 +189,9 @@ func TestDecodeFailureReturnsANilPointer(t *testing.T) {
 	ctx := deadline(t)
 	users := genericmongo.New[*user](misfiled(t))
 
+	var decodeErr *bsoncodec.DecodeError
 	got, err := users.FindOne(ctx, bson.M{})
-	require.Error(t, err, "a string cannot be decoded as an age")
+	require.ErrorAs(t, err, &decodeErr, "a string cannot be decoded as an age")
 	assert.Nil(t, got, "FindOne gives no pointer to a half-filled document")
 
 	cur, err := users.Find(ctx, bson.M{})
@@ -199,40 +199,56 @@ func TestDecodeFailureReturnsANilPointer(t *testing.T) {
 	defer cur.Close(ctx)
 	require.True(t, cur.Next(ctx), "the cursor must reach the document")
 	got, err = cur.Decode()
-	require.Error(t, err, "a string cannot be decoded as an age")
+	require.ErrorAs(t, err, &decodeErr, "a string cannot be decoded as an age")
 	assert.Nil(t, got, "the cursor gives no pointer to a half-filled document")
 }
 
-func TestPointerDocuments(t *testing.T) {
+func TestDocumentsOfEveryKind(t *testing.T) {
 	t.Parallel()
-	ctx := deadline(t)
-	users := genericmongo.New[*user](driverCollection(t))
-	want := ada
-
-	_, err := users.InsertOne(ctx, &want)
-	require.NoError(t, err, "the insert the test reads back")
-
-	got, err := users.FindOne(ctx, bson.M{"_id": want.ID})
-	require.NoError(t, err, "the inserted document must be found")
-	assert.Equal(t, &want, got, "a collection of pointers returns a pointer to the document")
-
-	got, err = users.FindOne(ctx, bson.M{"_id": "nobody"})
-	assert.ErrorIs(t, err, mongo.ErrNoDocuments, "no document matches")
-	assert.Nil(t, got, "no pointer comes with the error")
+	t.Run("struct", func(t *testing.T) {
+		t.Parallel()
+		readBack(t, ada)
+	})
+	t.Run("pointer", func(t *testing.T) {
+		t.Parallel()
+		want := ada
+		readBack(t, &want)
+	})
+	t.Run("map", func(t *testing.T) {
+		t.Parallel()
+		readBack(t, bson.M{"_id": "ada", "name": "Ada"})
+	})
 }
 
-func TestMapDocuments(t *testing.T) {
-	t.Parallel()
+// readBack stores one document in a collection of its type, and reads it
+// through each typed read.
+func readBack[T any](t *testing.T, document T) {
 	ctx := deadline(t)
-	docs := genericmongo.New[bson.M](driverCollection(t))
-	want := bson.M{"_id": "ada", "name": "Ada"}
-
-	_, err := docs.InsertOne(ctx, want)
+	docs := genericmongo.New[T](driverCollection(t))
+	_, err := docs.InsertMany(ctx, []T{document})
 	require.NoError(t, err, "the insert the test reads back")
 
-	got, err := docs.FindOne(ctx, bson.M{"_id": "ada"})
+	found, err := docs.FindOne(ctx, bson.M{})
 	require.NoError(t, err, "the inserted document must be found")
-	assert.Equal(t, want, got, "a collection of maps returns the document as a map")
+	assert.Equal(t, document, found, "FindOne returns the document as its type")
+
+	cur, err := docs.Find(ctx, bson.M{})
+	require.NoError(t, err, "the find the test reads")
+	defer cur.Close(ctx)
+	require.True(t, cur.Next(ctx), "the cursor must reach the document")
+	decoded, err := cur.Decode()
+	require.NoError(t, err, "the document must decode as its type")
+	assert.Equal(t, document, decoded, "the cursor's Decode returns the document as its type")
+
+	cur, err = docs.Find(ctx, bson.M{})
+	require.NoError(t, err, "the find the test reads")
+	all, err := cur.All(ctx)
+	require.NoError(t, err, "the document must decode as its type")
+	assert.Equal(t, []T{document}, all, "All returns the documents as a slice of their type")
+
+	none, err := docs.FindOne(ctx, bson.M{"_id": "nobody"})
+	assert.ErrorIs(t, err, mongo.ErrNoDocuments, "no document matches")
+	assert.Zero(t, none, "no document comes with the error, whatever its type")
 }
 
 func TestCloneKeepsTheTypeAndTakesOptions(t *testing.T) {
@@ -240,15 +256,19 @@ func TestCloneKeepsTheTypeAndTakesOptions(t *testing.T) {
 	ctx := deadline(t)
 	users := usersWith(t, ada)
 
-	clone, err := users.Clone(options.Collection().SetWriteConcern(writeconcern.Unacknowledged()))
+	// A lone server refuses a write that asks for two servers to confirm it,
+	// so the option shows without a write being made.
+	twoServers := options.Collection().SetWriteConcern(&writeconcern.WriteConcern{W: 2})
+	clone, err := users.Clone(twoServers)
 	require.NoError(t, err, "the clone the test uses")
 
 	got, err := clone.FindOne(ctx, bson.M{"_id": ada.ID})
 	require.NoError(t, err, "the clone reads the same collection")
 	assert.Equal(t, ada, got, "the clone's documents have the original's type")
 
+	var refused mongo.CommandError
 	_, err = clone.InsertOne(ctx, bob)
-	assert.ErrorIs(t, err, mongo.ErrUnacknowledgedWrite, "the clone has the options it was given")
+	assert.ErrorAs(t, err, &refused, "the clone has the options it was given")
 	_, err = users.InsertOne(ctx, cy)
 	assert.NoError(t, err, "the original keeps its own options")
 }

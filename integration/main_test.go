@@ -43,8 +43,7 @@ func run(m *testing.M) int {
 	return code
 }
 
-// user is the document most tests store. Its fields are in the order the
-// tests need them decoded: see misfiled.
+// user is the document most tests store.
 type user struct {
 	ID   string `bson:"_id"`
 	Name string `bson:"name"`

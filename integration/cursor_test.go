@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tophergopher/genericmongo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -52,6 +53,7 @@ func TestAllReturnsEveryDocument(t *testing.T) {
 	got, err = cur.All(ctx)
 	require.NoError(t, err, "nothing to decode is no error")
 	assert.Empty(t, got, "no documents match")
+	assert.NotNil(t, got, "no documents is an empty slice, which JSON encodes as [] and not as null")
 }
 
 func TestAllFailureReturnsNoDocuments(t *testing.T) {
@@ -62,11 +64,14 @@ func TestAllFailureReturnsNoDocuments(t *testing.T) {
 	require.NoError(t, err, "a document that does decode, beside the one that does not")
 	users := genericmongo.New[user](coll)
 
+	// Bob sorts first, so he is decoded before the failure.
 	cur, err := users.Find(ctx, bson.M{}, options.Find().SetSort(bson.M{"_id": -1}))
 	require.NoError(t, err, "the find itself must succeed")
 	got, err := cur.All(ctx)
-	require.Error(t, err, "a string cannot be decoded as an age")
-	assert.Empty(t, got, "the documents decoded before the failure are not returned")
+
+	var decodeErr *bsoncodec.DecodeError
+	require.ErrorAs(t, err, &decodeErr, "a string cannot be decoded as an age")
+	assert.Empty(t, got, "All returns no documents with an error, however it comes to read them")
 }
 
 func TestFindFailureReturnsNoCursor(t *testing.T) {

@@ -21,7 +21,7 @@ type User struct {
 // The examples that use a collection are compiled but not run, because they
 // need a MongoDB server.
 
-// New types a collection of the driver's. Writes then take the type, and
+// New wraps a collection of the driver's. Writes then take the type, and
 // reads return it.
 func ExampleNew() {
 	var db *mongo.Database // from the caller's client
@@ -37,7 +37,8 @@ func ExampleNew() {
 	}
 }
 
-// FindOne returns the document. Finding nothing is the driver's error.
+// FindOne returns the document. When nothing matches, the error is
+// mongo.ErrNoDocuments.
 func ExampleCollection_FindOne() {
 	var db *mongo.Database // from the caller's client
 	users := genericmongo.New[User](db.Collection("users"))
@@ -53,8 +54,8 @@ func ExampleCollection_FindOne() {
 	fmt.Println(ada.Age)
 }
 
-// Find returns a cursor, read as the driver's is. Its Decode returns the
-// document.
+// Find returns a cursor that is read as the driver's is, except that Decode
+// returns the document.
 func ExampleCollection_Find() {
 	var db *mongo.Database // from the caller's client
 	users := genericmongo.New[User](db.Collection("users"))
@@ -100,10 +101,10 @@ type CityCount struct {
 	Users int    `bson:"users"`
 }
 
-// An aggregation's documents are seldom the collection's, so Aggregate stays
-// the driver's and NewCursor types the cursor it returns. Here the driver
-// builds that cursor from documents in memory, so the example runs with no
-// server.
+// An aggregation's documents are often not the collection's, so Aggregate
+// stays the driver's and NewCursor wraps the cursor it returns. Here the
+// driver builds that cursor from documents in memory, so the example runs
+// with no server.
 func ExampleNewCursor() {
 	cursor, err := mongo.NewCursorFromDocuments([]any{
 		bson.M{"_id": "London", "users": 2},
@@ -125,12 +126,13 @@ func ExampleNewCursor() {
 	// Paris 1
 }
 
-// userFinder is the one method that ageOf needs from a collection of users.
+// userFinder declares the one method that ageOf needs from a collection of
+// users.
 type userFinder interface {
 	FindOne(ctx context.Context, filter any, opts ...*options.FindOneOptions) (User, error)
 }
 
-// A typed collection is a userFinder.
+// A Collection[User] is a userFinder.
 var _ userFinder = (*genericmongo.Collection[User])(nil)
 
 // ageOf is the code under test: it reads a user and needs no server to be
@@ -150,7 +152,7 @@ func (u onlyUser) FindOne(context.Context, any, ...*options.FindOneOptions) (Use
 
 // The package exports no interface. Code that wants a stand-in for a
 // collection in its tests declares an interface with the methods it calls,
-// which a typed collection and the stand-in both have.
+// which a Collection and the stand-in both have.
 func Example_testDouble() {
 	age, err := ageOf(context.Background(), onlyUser{Name: "Ada", Age: 36}, "Ada")
 	if err != nil {
