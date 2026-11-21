@@ -1,7 +1,8 @@
 version: 2
 # Every entry waits a week before proposing a new release, so one that turns
-# out to be compromised is usually withdrawn before it is pinned here.
-# Security updates are not held back.
+# out to be compromised is usually withdrawn before Dependabot proposes it.
+# The wait does not apply to security updates, which Dependabot opens only
+# when they are switched on in the repository's settings.
 updates:
   # Every go.mod in the repository, so a module added later is covered
   # without editing this file.
@@ -13,8 +14,9 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+  # The workflows pin each action to a commit; this entry moves those pins.
   - package-ecosystem: "github-actions"
-    directory: "/" # the workflows pin actions to a commit; this moves the pins
+    directory: "/"
     schedule:
       interval: "weekly"
     cooldown:

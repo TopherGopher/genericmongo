@@ -22,7 +22,7 @@ jobs:
         # No later step pushes, so the token is not left in the git config.
         persist-credentials: false
 
-    # After the checkout: it reads the Go version from go.mod.
+    # Runs after the checkout, because it reads the Go version from go.mod.
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
@@ -47,14 +47,11 @@ jobs:
         go vet ./...
         go build ./...
 
-    # The root ./... does not reach integration/, which has its own go.mod.
-    # It holds only tests, so it is vet that compiles them: build finds
-    # nothing to build there.
-    - name: Vet and build the tests
+    # integration/ has its own go.mod, so the root ./... skips it. It holds
+    # only tests, which go build ignores, so go vet is what compiles them.
+    - name: Vet the tests
       working-directory: ./integration
-      run: |
-        go vet ./...
-        go build ./...
+      run: go vet ./...
 
   test:
     name: Test (Go ${{ matrix.go || 'pinned in go.mod' }})
@@ -62,10 +59,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Empty uses the release go.mod pins. 1.26.x is the oldest release
-        # the Go team still supports, which both modules' go lines allow.
-        # setup-go stops the go command fetching a newer one, so if a module
-        # starts to need one, this leg fails before its users find out.
+        # '' runs the Go that go.mod pins. 1.26.x is the oldest release the
+        # Go team still supports, and both modules' go lines allow it.
+        # setup-go sets GOTOOLCHAIN=local, so the go command runs the Go it
+        # installed and never downloads a newer one. If a module comes to
+        # need a newer Go, the 1.26.x run fails before users on 1.26 do.
         go: ['', '1.26.x']
     steps:
     - name: Check out the code
@@ -86,10 +84,10 @@ jobs:
     - name: Run the examples
       run: go test -v -race -shuffle=on ./...
 
-    # The tests start MongoDB in a Docker container, which the runner's
-    # Docker daemon serves. Each module is tested from its own go.mod, so the
-    # library is tested here against the dependency versions the tests need,
-    # not the lower ones its own go.mod allows.
+    # The tests start MongoDB in a Docker container; Docker comes with
+    # ubuntu-latest runners. Each module is tested from its own go.mod, so
+    # the library is tested here with the versions integration/go.mod
+    # selects, not the minimums the root go.mod names.
     - name: Run the tests
       working-directory: ./integration
       run: go test -v -race -shuffle=on -timeout=15m ./...
