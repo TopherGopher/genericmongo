@@ -48,6 +48,10 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   `go.mongodb.org/mongo-driver`. Version 2 is a different module, which this
   library does not wrap. Code that needs any other dependency lives in a
   module of its own, as the tests do.
+- **Driver v2 gets a module of its own.** If a version for driver v2 is
+  built, it is the nested module `github.com/tophergopher/genericmongo/driverv2`,
+  versioned from v0 with its own tags. That leaves `/v2` free for a breaking
+  change to the root module.
 - **Errors are the driver's.** An error from the driver is returned as it
   is, so a caller's `errors.Is(err, mongo.ErrNoDocuments)` still matches. An
   error the library adds is a package-level sentinel, or a typed value that
