@@ -25,7 +25,7 @@ Report:
   and read the errors: does each say what went wrong and what to do next?
 - **What had to be looked up.** Anything the common case needs that the
   signatures do not show.
-- **What could be removed.** An option, a type or a step the common case
+- **What could be removed.** A type, a function or a step the common case
   never needs.
 
 For each point say what you would change, and what it would cost existing

@@ -38,8 +38,8 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   types. If a caller has to read the docs to make a call work, the method is
   wrong.
 - **Types and nothing else.** No query builder, no hooks, no base model, and
-  no interface a document has to implement. Filters, options and results
-  are the driver's own.
+  no interface a document has to implement. Filters, options and result
+  types such as `*mongo.InsertOneResult` are the driver's own.
 - **As simple as possible.** Prefer removing code to adding it. Do not write
   an edge case that needs hundreds of lines. If it is likely to happen, open a
   GitHub issue for it; if it is not, leave it out.
@@ -57,8 +57,8 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
 
 - **Test first.** Write the test, watch it fail for the reason you expect,
   then write the code. Never delete, skip or weaken a test to get a green run.
-- **Against a real MongoDB.** Every test lives in `integration/`, a module
-  of its own, and gets a server from
+- **Against a real MongoDB.** Every test, benchmark and fuzz target lives
+  in `integration/`, a module of its own, and gets a server from
   [dbtest](https://github.com/TopherGopher/dbtest). The tests need a Docker
   daemon, and fail rather than skip without one. The root module holds the
   library and its examples, and has no test dependency.
@@ -72,10 +72,10 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   not break a test.
 - **Examples and benchmarks where they mean something.** A function a
   caller meets first, such as a constructor or `Find`, gets an `Example` in
-  the root module. It runs if the driver can build its result with no
-  server, and is compiled but not run if it cannot. A function whose speed
-  matters gets a benchmark. A getter needs neither. Anything that parses
-  input has a fuzz target.
+  the root module. An example that needs no server has an `// Output:`
+  comment, so it runs; one that needs a server has none, so it is compiled
+  but not run. A function whose speed matters gets a benchmark. A getter
+  needs neither. Anything that parses input has a fuzz target.
 
 ## Code
 
@@ -113,7 +113,7 @@ defined in `.claude/agents/`.
 | `qa-expert` | say what needs a test, and whether a test is meaningful |
 | `ux-expert` | judge what the library is like to pick up with no documentation |
 | `documentation-expert` | review or draft docs, comments and messages against the documentation standard, and check them against the code |
-| `security-expert` | review untrusted input, what errors and logs reveal, CI and dependencies |
+| `security-expert` | review untrusted input, what an error reveals, CI and dependencies |
 | `skeptic` | ask, constructively, why a decision is what it is and whether something simpler would do |
 | `decider` | make a decision in the maintainer's place |
 
@@ -136,7 +136,8 @@ defined in `.claude/agents/`.
 
 ## Before a change is done
 
-1. `gofmt -l .` prints nothing, and `go vet ./...` passes.
+1. `gofmt -l .` prints nothing, and `go vet ./...` passes here and in
+   `integration/`.
 2. `go test -race ./...` passes here, where it runs the examples, and in
    `integration/`, where it runs the tests.
 3. Reviewers with no context read the change adversarially: a newly

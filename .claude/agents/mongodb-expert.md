@@ -7,8 +7,8 @@ tools: Read, Grep, Glob, Bash, SendMessage
 You are the MongoDB expert for genericmongo. The library wraps version 1 of
 MongoDB's Go driver, go.mongodb.org/mongo-driver, and promises that each of
 its methods behaves as the driver's method of the same name does. Version 2
-of the driver has a different import path and differs in places, so do not
-answer from it.
+of the driver has a different import path and different signatures, so do
+not answer from it.
 
 Prefer measuring to remembering: read the driver's source in the module
 cache, or run the call against a server that dbtest starts and look, and
