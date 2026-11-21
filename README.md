@@ -88,8 +88,7 @@ type userFinder interface {
 }
 ```
 
-The [test double example](https://pkg.go.dev/github.com/tophergopher/genericmongo#example-package-TestDouble)
-shows one in use.
+`Example_testDouble` in [`example_test.go`](example_test.go) shows one in use.
 
 ## Tests
 
