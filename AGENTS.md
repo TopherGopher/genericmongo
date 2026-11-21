@@ -44,8 +44,10 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   an edge case that needs hundreds of lines. If it is likely to happen, open a
   GitHub issue for it; if it is not, leave it out.
 - **The driver and nothing else.** The library depends on the standard
-  library and on version 1 of MongoDB's Go driver. Anything heavier lives in
-  its own module, the tests included.
+  library and on version 1 of MongoDB's Go driver,
+  `go.mongodb.org/mongo-driver`. Version 2 is a different module, which this
+  library does not wrap. Code that needs any other dependency lives in a
+  module of its own, as the tests do.
 - **Errors are the driver's.** An error from the driver is returned as it
   is, so a caller's `errors.Is(err, mongo.ErrNoDocuments)` still matches. An
   error the library adds is a package-level sentinel, or a typed value that
@@ -55,10 +57,11 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
 
 - **Test first.** Write the test, watch it fail for the reason you expect,
   then write the code. Never delete, skip or weaken a test to get a green run.
-- **Against a real MongoDB.** The tests live in `integration/`, a module of
-  its own, and get a server from
-  [dbtest](https://github.com/TopherGopher/dbtest). They need a Docker
-  daemon, and fail rather than skip without one.
+- **Against a real MongoDB.** Every test lives in `integration/`, a module
+  of its own, and gets a server from
+  [dbtest](https://github.com/TopherGopher/dbtest). The tests need a Docker
+  daemon, and fail rather than skip without one. The root module holds the
+  library and its examples, and has no test dependency.
 - **testify.** `require` for a precondition the rest of the test depends on,
   `assert` for the checks. Give each a short message saying what it protects.
 - **Meaningful.** A test states a behaviour a caller relies on. If no caller
@@ -68,9 +71,11 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   order of calls that does not matter. A refactor that keeps behaviour must
   not break a test.
 - **Examples and benchmarks where they mean something.** A function a
-  caller has to learn how to use gets a runnable `Example` that needs no
-  server. A function whose speed matters gets a benchmark. A getter needs
-  neither. Anything that parses input has a fuzz target.
+  caller meets first, such as a constructor or `Find`, gets an `Example` in
+  the root module. It runs if the driver can build its result with no
+  server, and is compiled but not run if it cannot. A function whose speed
+  matters gets a benchmark. A getter needs neither. Anything that parses
+  input has a fuzz target.
 
 ## Code
 
@@ -80,8 +85,9 @@ Work is planned in GitHub issues and nowhere else. There is no plan file.
   private function, or use a `switch` when there are several branches.
 - **Explain what cannot be factored.** Where code has to be intricate, such
   as a driver quirk, say why in a brief comment beside it.
-- **Streaming by default.** Prefer a cursor over holding every document in
-  memory.
+- **Streaming by default.** Where the driver returns a cursor, so does the
+  library. It reads every document into memory only when the caller asks,
+  as `All` does.
 
 ## Documentation
 
@@ -131,9 +137,8 @@ defined in `.claude/agents/`.
 ## Before a change is done
 
 1. `gofmt -l .` prints nothing, and `go vet ./...` passes.
-2. `go test -race ./...` passes here and in `integration/`. The tests in
-   `integration/` need a Docker daemon, and fail rather than skip without
-   one.
+2. `go test -race ./...` passes here, where it runs the examples, and in
+   `integration/`, where it runs the tests.
 3. Reviewers with no context read the change adversarially: a newly
    spawned `tone-reviewer` for the writing, and the experts the change
    calls for, each given only the code and docs. Anything exported goes to
