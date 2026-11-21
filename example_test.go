@@ -21,7 +21,7 @@ type User struct {
 // The examples that use a collection are compiled but not run, because they
 // need a MongoDB server.
 
-// New wraps a collection of the driver's. Writes then take the type, and
+// New wraps one of the driver's collections. Writes then take the type, and
 // reads return it.
 func ExampleNew() {
 	var db *mongo.Database // from the caller's client
@@ -54,8 +54,8 @@ func ExampleCollection_FindOne() {
 	fmt.Println(ada.Age)
 }
 
-// Find returns a cursor that is read as the driver's is, except that Decode
-// returns the document.
+// Find returns a cursor you read as you would the driver's, except that
+// Decode returns the document.
 func ExampleCollection_Find() {
 	var db *mongo.Database // from the caller's client
 	users := genericmongo.New[User](db.Collection("users"))

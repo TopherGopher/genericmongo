@@ -8,7 +8,8 @@ that a read returns your own type and a write takes it.
 go get github.com/tophergopher/genericmongo
 ```
 
-It needs Go 1.26 or newer.
+It needs Go 1.26 or newer. Releases stay below v1.0.0 for now, so the API may
+still change.
 
 ```go
 type User struct {
@@ -52,7 +53,8 @@ and options. These methods are typed:
 | `InsertMany` | takes a `[]interface{}` | takes a `[]T` |
 | `Clone` | returns the driver's collection | returns a `Collection[T]` |
 
-Errors are the driver's own, so `errors.Is(err, mongo.ErrNoDocuments)`
+Results of writes are the driver's own, such as `*mongo.InsertOneResult` with
+its `InsertedID`. So are errors: `errors.Is(err, mongo.ErrNoDocuments)`
 matches as it does with the driver. A call that returns an error returns no
 document with it: the value is the zero `T`.
 
@@ -66,7 +68,7 @@ cur, err := users.Aggregate(ctx, pipeline)
 if err != nil {
     return err
 }
-totals, err := genericmongo.NewCursor[Total](cur).All(ctx)
+counts, err := genericmongo.NewCursor[CityCount](cur).All(ctx)
 ```
 
 Code that needs the driver's own collection or cursor gets it from the
@@ -84,7 +86,7 @@ and so can a stand-in you write for the test:
 
 ```go
 type userFinder interface {
-    FindOne(ctx context.Context, filter any, opts ...*options.FindOneOptions) (User, error)
+    FindOne(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) (User, error)
 }
 ```
 

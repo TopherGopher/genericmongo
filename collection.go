@@ -37,15 +37,16 @@ func (c *Collection[T]) FindOne(ctx context.Context, filter any,
 // it. When none does, the error is [mongo.ErrNoDocuments].
 //
 // The delete happens even when the document cannot then be decoded as T, and
-// the document is not returned. To keep it, call FindOneAndDelete on the
-// embedded Collection: the driver's result holds the document undecoded.
+// the document is not returned. To get the deleted document whatever its
+// shape, call FindOneAndDelete on the embedded Collection: the driver's
+// result holds the raw document.
 func (c *Collection[T]) FindOneAndDelete(ctx context.Context, filter any,
 	opts ...*options.FindOneAndDeleteOptions) (T, error) {
 	return decode[T](c.Collection.FindOneAndDelete(ctx, filter, opts...).Decode)
 }
 
 // FindOneAndUpdate updates the first document that matches filter and returns
-// it as it was before the update, or as it is after with
+// it as it was before the update. To get it as it is after, pass
 // SetReturnDocument(options.After). When there is no document to return, the
 // error is [mongo.ErrNoDocuments]. As with FindOneAndDelete, the write happens
 // even when the document cannot then be decoded as T.
@@ -55,7 +56,7 @@ func (c *Collection[T]) FindOneAndUpdate(ctx context.Context, filter, update any
 }
 
 // FindOneAndReplace replaces the first document that matches filter and
-// returns it as it was before, or the replacement with
+// returns it as it was before. To get the replacement, pass
 // SetReturnDocument(options.After). When there is no document to return, the
 // error is [mongo.ErrNoDocuments]. As with FindOneAndDelete, the write happens
 // even when the document cannot then be decoded as T.

@@ -22,7 +22,7 @@ type Cursor[T any] struct {
 //	if err != nil {
 //		return err
 //	}
-//	totals, err := genericmongo.NewCursor[Total](cur).All(ctx)
+//	counts, err := genericmongo.NewCursor[CityCount](cur).All(ctx)
 func NewCursor[T any](c *mongo.Cursor) *Cursor[T] {
 	return &Cursor[T]{Cursor: c}
 }
@@ -33,8 +33,8 @@ func (c *Cursor[T]) Decode() (T, error) {
 }
 
 // All returns the cursor's documents, an empty slice when there are none, and
-// closes the cursor. Call it in place of Next, not after it: after Next, the
-// driver returns the documents of the current batch again.
+// closes the cursor. Call it in place of Next, not after it: documents that
+// Next has already read can be returned again.
 func (c *Cursor[T]) All(ctx context.Context) ([]T, error) {
 	// Not nil, so that no documents encodes as a JSON array and not as null.
 	documents := []T{}
