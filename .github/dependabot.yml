@@ -1,0 +1,21 @@
+version: 2
+# Every entry waits a week before proposing a new release, so one that turns
+# out to be compromised is usually withdrawn before it is pinned here.
+# Security updates are not held back.
+updates:
+  # Every go.mod in the repository, so a module added later is covered
+  # without editing this file.
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "**/*"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/" # the workflows pin actions to a commit; this moves the pins
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7

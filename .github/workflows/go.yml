@@ -1,0 +1,95 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# The token every job gets can read the repository and nothing more. No job
+# uses a secret, and none publishes anything.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Format, vet and build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out the code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        # No later step pushes, so the token is not left in the git config.
+        persist-credentials: false
+
+    # After the checkout: it reads the Go version from go.mod.
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        # Go is the release named by the toolchain line in the root go.mod.
+        # It changes only when a reviewed change edits that line, never by
+        # itself when a new patch comes out.
+        go-version-file: go.mod
+
+    # gofmt works on files, not modules, so one run from the root checks
+    # both modules.
+    - name: Check formatting
+      run: |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          echo "These files need gofmt -w:"
+          echo "$unformatted"
+          exit 1
+        fi
+
+    - name: Vet and build the library
+      run: |
+        go vet ./...
+        go build ./...
+
+    # The root ./... does not reach integration/, which has its own go.mod.
+    # It holds only tests, so it is vet that compiles them: build finds
+    # nothing to build there.
+    - name: Vet and build the tests
+      working-directory: ./integration
+      run: |
+        go vet ./...
+        go build ./...
+
+  test:
+    name: Test (Go ${{ matrix.go || 'pinned in go.mod' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Empty uses the release go.mod pins. 1.26.x is the oldest release
+        # the Go team still supports, which both modules' go lines allow.
+        # setup-go stops the go command fetching a newer one, so if a module
+        # starts to need one, this leg fails before its users find out.
+        go: ['', '1.26.x']
+    steps:
+    - name: Check out the code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        # No later step pushes, so the token is not left in the git config.
+        persist-credentials: false
+
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        # When go-version is set, it overrides go-version-file. Otherwise Go
+        # is the release named by the toolchain line in the root go.mod.
+        go-version: ${{ matrix.go }}
+        go-version-file: go.mod
+
+    # The root module's only tests are its examples.
+    - name: Run the examples
+      run: go test -v -race -shuffle=on ./...
+
+    # The tests start MongoDB in a Docker container, which the runner's
+    # Docker daemon serves. Each module is tested from its own go.mod, so the
+    # library is tested here against the dependency versions the tests need,
+    # not the lower ones its own go.mod allows.
+    - name: Run the tests
+      working-directory: ./integration
+      run: go test -v -race -shuffle=on -timeout=15m ./...
