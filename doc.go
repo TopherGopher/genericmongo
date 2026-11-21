@@ -1,3 +1,19 @@
-// Package genericmongo is the MongoDB Go driver's collection and cursor with
-// their documents typed.
+// Package genericmongo types the documents of the MongoDB Go driver's
+// collections and cursors, so that a read returns a caller's own type and a
+// write takes it:
+//
+//	users := genericmongo.New[User](db.Collection("users"))
+//	ada, err := users.FindOne(ctx, bson.M{"name": "Ada"})
+//
+// A [Collection] is the driver's collection. Each method does what the
+// driver's method of the same name does, with the same filters and options;
+// the ones that take or return a document use T where the driver uses
+// interface{}. The driver's other methods, such as UpdateOne and Aggregate,
+// are there unchanged.
+//
+// Errors are the driver's own, so errors.Is(err, mongo.ErrNoDocuments) matches
+// as it does with the driver. A call that returns an error returns no
+// document with it: the value is the zero T.
+//
+// The driver is version 1, go.mongodb.org/mongo-driver.
 package genericmongo
